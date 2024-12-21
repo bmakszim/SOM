@@ -35,8 +35,6 @@ _*Learning Rate Decay_: Ensures the SOM converges over time.
 
 _*Neighborhood Function_: Controls how far the influence of a BMU extends to its neighbors.
 
----
-
 ## Applications of SOMs:
 
 1. **Clustering**: Grouping similar data points, such as customer segmentation.
@@ -47,11 +45,45 @@ _*Neighborhood Function_: Controls how far the influence of a BMU extends to its
 
 4. **Feature Reduction**: Simplifying datasets for further processing.
 
-## Implementation
+# Implementation
 
-### Overview
+## Overview
 
 This implementation segments a set of synthetic customer data into clusters using a Self-Organizing Map (SOM).
+
+## Example: Customer Segmentation in an Online Store
+
+### Task:
+
+An online store owner wants to understand how their customers can be grouped (segmented) based on their purchasing behavior. The data includes the following:
+
+- Purchase frequency.
+- Average spending.
+- Product categories they purchase from.
+- Customers' demographic information (e.g., age, gender).
+
+### Using SOM:
+
+**Data Preparation**:
+- Customer data is represented in a multi-dimensional space (e.g., 10 dimensions), where each dimension corresponds to one of the listed features.
+
+**Training the SOM**:
+- A SOM is trained on a 10x10 grid to learn the structure of the data.
+- Customers with similar purchasing behaviors are mapped close to each other on the grid.
+
+**Identifying Clusters**:
+- Customers are grouped into different clusters on the SOM grid.
+- For example, customers could be segmented into the following groups:
+    - Low-spending, infrequent buyers.
+    - High-spending, frequent buyers.
+    - Customers focusing on a specific product category.
+
+**Supporting Business Decisions**:
+- Segments enable the creation of personalized marketing campaigns:
+    - Offer discounts to low-spending customers.
+    - Create VIP programs for frequent buyers.
+
+## Detailed explanation of the implementation:
 
 ### Step 1: Generate Synthetic Data
 
@@ -66,11 +98,13 @@ data = np.column_stack((
 ))
 ```
 **Explanation**:
-This code generates a set of random input data.
+- This code generates a set of random input data.
 
-**Inputs**: Customer behavior: `purchase_frequency`, `avg_spending`, `category_focus`, `age`.
+**Inputs**:
+- Customer behavior: `purchase_frequency`, `avg_spending`, `category_focus`, `age`.
 
-**Outputs**: A matrix (`data`) of shape `(500, 4`) representing 500 customers with 4 features.
+**Outputs**:
+- A matrix (`data`) of shape `(500, 4`) representing 500 customers with 4 features.
 
 ### Step 2: Normalize the Data
 
@@ -79,7 +113,8 @@ scaler = MinMaxScaler()
 data_normalized = scaler.fit_transform(data)
 
 ```
-**Explanation**: Normalizes all features to the range [0,1], ensuring that all dimensions contribute equally to the Euclidean distance calculation.
+**Explanation**:
+- Normalizes all features to the range [0,1], ensuring that all dimensions contribute equally to the Euclidean distance calculation.
 
 **Formula**:
 ```math
@@ -100,8 +135,8 @@ num_iterations = 1000
 
 - **Grid size:** 5x5 SOM grid.
 - **Weights:** Randomly initialized weight vectors for each SOM node.
-- **Sigma:** Initial neighborhood radius.
-- **Learning rate:** Controls weight updates.
+- **Sigma (σ):** Initial neighborhood radius.
+- **Learning rate (η):** Controls weight updates.
 
 ### Step 4: Train the SOM
 ```python
@@ -131,9 +166,90 @@ for iteration in range(num_iterations):
 **Explanation**:
 1. **Random Sample**: A data point is randomly selected.
 2. **Best Matching Unit (BMU)**:
-The SOM node (grid point) whose weight vector is closest to the sample is selected.
-3. **Formula (Euclidean distance)**:
+- The SOM node (grid point) whose weight vector is closest to the sample is selected.
+- Formula (Euclidean distance):
 
 ```math
 d_{ij} = \| x - w_{ij} \|_2 = \sqrt{\sum_k (x_k - w_{ij,k})^2}
 ```
+
+3. **Neighborhood Update**:
+- Update weights of the BMU and its neighbors:
+```math
+w_{ij} \gets w_{ij} + \eta \cdot \text{influence} \cdot (x - w_{ij})
+```
+- Influence is determined by a Gaussian function:
+```math
+\text{influence} = \exp\left(-\frac{d_{\text{BMU}}^2}{2\sigma^2}\right)
+```
+
+4. **Decay Parameters**:
+Gradually reduce the learning rate (η) and neighborhood size (σ) over iterations.
+
+### Step 5: Assign Customers to Clusters
+
+```python
+customer_clusters = np.array([
+    np.unravel_index(np.argmin([[euclidean_distance(customer, weights[i, j])
+                                 for j in range(som_grid_size[1])] for i in range(som_grid_size[0])]), weights.shape[:2])
+    for customer in data_normalized
+])
+```
+
+**Explanation**:
+- For each customer, find the BMU (i.e., the SOM node with the smallest distance to the customer's normalized data vector).
+- Assign the customer to the BMU's cluster.
+
+### Step 6: Visualize the Clusters
+
+```python
+unique_clusters = np.unique(customer_clusters, axis=0)
+unique_cluster_indices = {tuple(cluster): idx for idx, cluster in enumerate(unique_clusters)}
+cluster_colors = np.array([unique_cluster_indices[tuple(c)] for c in customer_clusters])
+
+```
+
+**Explanation**:
+- Identify unique clusters (grid points) and assign a unique color to each.
+
+### Step 7: Plot SOM Grid
+
+```python
+plt.figure(figsize=(10, 10))
+for i, (x, y) in enumerate(customer_clusters):
+    plt.scatter(
+        x + np.random.uniform(-0.4, 0.4),
+        y + np.random.uniform(-0.4, 0.4),
+        color=color_map(cluster_colors[i]),
+        alpha=0.7,
+        edgecolors="k",
+        linewidth=0.5
+    )
+
+for idx, cluster in enumerate(unique_clusters):
+    plt.text(cluster[0], cluster[1], str(idx), ha='center', va='center',
+             bbox=dict(facecolor='white', alpha=0.8, edgecolor='black'))
+
+plt.title("Customer Segments with Cluster Colors in SOM Grid")
+plt.xlabel("SOM Grid X-axis")
+plt.ylabel("SOM Grid Y-axis")
+plt.grid()
+plt.show()
+
+```
+
+![image](src/plot.png "Title")
+
+**How to Interpret the Diagram?**
+- Customers belonging to the same grid point (or close points) have similar purchasing habits.
+- Clusters with different colors and further apart indicate greater differences in purchasing behavior.
+
+**Explanation**:
+- **Scatter Plot**: Customers are visualized on the SOM grid, grouped by their assigned clusters.
+- **Cluster Labels**: Unique labels are added to the grid nodes to identify clusters.
+
+## Summary
+
+1. The SOM projects high-dimensional customer data into a 2D grid.
+2. Similar customers are mapped to the same or neighboring grid points, forming clusters.
+3. The resulting grid visually represents customer segments, which can be analyzed for targeted marketing.
